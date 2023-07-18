@@ -1,5 +1,26 @@
+# frozen_string_literal: true
+
 WORDS = File.read("dict.txt").split("\n")
 FIRST_WORD = "океан" # precalculated
+FULL_SEARCH_THRESHOLD = 40
+PRECALCULATED_FIRST_ROUND = {
+  "ччччч" => "силур",
+  "жчччч" => "сироп",
+  "чжччч" => "тупик",
+  "ччжчч" => "литер",
+  "чччжч" => "мирта",
+  "ччччж" => "лунит",
+  "жчччж" => "рондо",
+  "жччжч" => "тропа",
+  "жчжчч" => "торец",
+  "жжччч" => "ролик",
+  "чжччж" => "узник",
+  "чжчжч" => "кабил",
+  "чжжчч" => "телик",
+  "ччжчж" => "центр",
+  "ччжжч" => "талер",
+  "чччжж" => "раина",
+}
 
 class LetterProps
   attr_reader :letter
@@ -94,20 +115,22 @@ class WordMask
 end
 
 class Game
-  attr_reader :mask, :filtered_words, :checked_word
+  attr_reader :mask, :filtered_words, :checked_word, :round, :round_mask
 
   def initialize
     @mask = WordMask.new
     @filtered_words = WORDS
     @checked_word = FIRST_WORD
+    @round = 0
   end
 
   def next_round
-    round_mask = prompt_round_mask
+    @round_mask = prompt_round_mask
     mask.consume_round_mask!(checked_word, round_mask)
     @filtered_words = mask.filter_words(filtered_words)
     @checked_word = find_best
-    puts "Next best word is #{@checked_word}"
+    @round += 1
+    return checked_word
   end
 
   def prompt_round_mask
@@ -118,10 +141,15 @@ class Game
   private
 
   def find_best
-    # because it checks only suitable here it works much faster but not ideally
+    precalculated = PRECALCULATED_FIRST_ROUND[@round_mask]
+    return precalculated if @round == 0 && !precalculated.nil?
+
+    # only filtered check works much faster but it less efficient
     # especially when there are a lot of letters with position (ex вахта, тахта, бахта, шахта and mask *ахта)
-    filtered_words.min_by.with_index do |checked, i|
-      puts "#{i} / #{filtered_words.size}"
+    checked_words = filtered_words.size <= FULL_SEARCH_THRESHOLD ? WORDS : filtered_words
+
+    checked_words.min_by.with_index do |checked, i|
+      # puts "#{i} / #{checked_words.size}"
 
       filtered_words.sum do |hidden|
         mask = WordMask.new
@@ -132,14 +160,26 @@ class Game
   end
 end
 
-puts "How to enter round mask:"
-puts "  з = letter at right position"
-puts "  ж = there is letter in word but not on that position"
-puts "  ч = there is no letter in word"
-puts "Best first word is #{FIRST_WORD}"
+def print_greeeting
+  puts "How to enter round mask:"
+  puts "  з = letter at right position"
+  puts "  ж = there is letter in word but not on that position"
+  puts "  ч = there is no letter in word"
+  puts "Best first word is #{FIRST_WORD}"
+end
 
 game = Game.new
+print_greeeting
 
 while true
-  game.next_round
+  next_best = game.next_round
+  if game.filtered_words.size == 1
+    puts "Word of game is #{game.filtered_words.first}. Game finished."
+    puts "Starting new game..."
+    puts
+    game = Game.new
+    print_greeeting
+  else
+    puts "Next best word is #{next_best}"
+  end
 end
