@@ -1,32 +1,11 @@
 WORDS = File.read("dict.txt").split("\n")
-FIRST_WORD = "океан" # find_best({})
-
-class Hash
-  def deep_dup
-    hash = dup
-    each_pair do |key, value|
-      if key.frozen? && ::String === key
-        hash[key] = value.deep_dup
-      else
-        hash.delete(key)
-        hash[key.deep_dup] = value.deep_dup
-      end
-    end
-    hash
-  end
-end
+FIRST_WORD = "океан" # precalculated
 
 class LetterProps
   attr_reader :letter
   attr_accessor :positions, :excluded_positions, :included, :excluded
   alias included? included
   alias excluded? excluded
-
-  def deep_dup
-    LetterProps.new(
-      letter, positions: positions.dup, excluded_positions: excluded_positions.dup, included:, excluded:
-    )
-  end
 
   def initialize(letter, positions: [], excluded_positions: [], included: false, excluded: false)
     @letter = letter
@@ -78,11 +57,11 @@ class WordMask
       letter_props = self.[](letter)
 
       case signal
-      when "0"
+      when "з"
         letter_props.add_position!(i)
-      when "1"
+      when "ж"
         letter_props.exclude_position!(i)
-      when "2"
+      when "ч"
         letter_props.excluded = true
       end
     end
@@ -92,11 +71,6 @@ class WordMask
     words.select do |word|
       mask.values.all? { |letter_props| letter_props.suitable?(word) }
     end
-  end
-
-  def with_compare_words(hidden, checked)
-    new_mask = WordMask.new(mask.deep_dup)
-    new_mask.tap { |mask| mask.compare_words!(hidden, checked) }
   end
 
   def compare_words!(hidden, checked)
@@ -137,7 +111,7 @@ class Game
   end
 
   def prompt_round_mask
-    printf "Enter round mask (ex. 00120): "
+    printf "Enter round mask (ex. ззжчз): "
     gets.chomp
   end
 
@@ -150,7 +124,8 @@ class Game
       puts "#{i} / #{filtered_words.size}"
 
       filtered_words.sum do |hidden|
-        mask = @mask.with_compare_words(hidden, checked)
+        mask = WordMask.new
+        mask.compare_words!(hidden, checked)
         mask.filter_words(filtered_words).size
       end
     end
@@ -158,9 +133,9 @@ class Game
 end
 
 puts "How to enter round mask:"
-puts "  0 = letter at right position"
-puts "  1 = there is letter in word but not on that position"
-puts "  2 = there is no letter in word"
+puts "  з = letter at right position"
+puts "  ж = there is letter in word but not on that position"
+puts "  ч = there is no letter in word"
 puts "Best first word is #{FIRST_WORD}"
 
 game = Game.new
